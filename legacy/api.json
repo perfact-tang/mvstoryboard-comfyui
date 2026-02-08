@@ -1,0 +1,5 @@
+{
+    "texttoimageapi":"http://localhost:3000/texttoimage",
+    "texttovideoapi":"http://localhost:3000/texttovideo",
+    "imagetovideoapi":"http://localhost:3000/imagetotext"
+}

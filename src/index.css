@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-md border border-slate-200/80;
+  }
+}
+
+body {
+  font-family: 'Inter', 'PingFang SC', sans-serif;
+  background-color: #f8fafc;
+}

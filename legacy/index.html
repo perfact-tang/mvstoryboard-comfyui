@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MV 拍摄方案可视化看板</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', 'PingFang SC', sans-serif; background-color: #f8fafc; }
+        .glass-card { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(226, 232, 240, 0.8); }
+        .tab-active { border-bottom: 2px solid #3b82f6; color: #3b82f6; }
+        .prompt-box:hover .copy-btn { opacity: 1; }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800">
+
+    <div id="app" class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-900">MV 拍摄方案可视化</h1>
+                <p class="text-slate-500 mt-1">基于 AI 生成的创意方案交互看板</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="document.getElementById('jsonInputModal').classList.remove('hidden')" class="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition">
+                    <i data-lucide="upload"></i> 导入 JSON
+                </button>
+                <button onclick="loadSampleData()" class="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2 rounded-lg hover:bg-slate-50 transition">
+                    <i data-lucide="play-circle"></i> 查看示例
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area (Empty State) -->
+        <div id="emptyState" class="flex flex-col items-center justify-center py-20 glass-card rounded-2xl">
+            <i data-lucide="file-json" class="w-16 h-16 text-slate-300 mb-4"></i>
+            <h2 class="text-xl font-medium text-slate-600">暂无数据</h2>
+            <p class="text-slate-400">请导入 AI 生成的方案 JSON 数据</p>
+        </div>
+
+        <!-- Dashboard Content -->
+        <div id="dashboardContent" class="hidden space-y-8">
+            <!-- Navigation Tabs -->
+            <div class="flex border-b border-slate-200">
+                <button onclick="switchTab('proposals')" id="tab-proposals" class="px-6 py-3 font-medium transition tab-active">拍摄方案 (5组)</button>
+                <button onclick="switchTab('characters')" id="tab-characters" class="px-6 py-3 font-medium transition text-slate-500 hover:text-slate-700">角色定妆</button>
+            </div>
+
+            <!-- View 1: Proposals -->
+            <div id="proposalsView" class="grid grid-cols-12 gap-6">
+                <!-- Sidebar Nav -->
+                <aside class="col-span-3 space-y-2" id="proposalList">
+                    <!-- Proposal items will be injected here -->
+                </aside>
+
+                <!-- Proposal Detail -->
+                <main class="col-span-9 space-y-6" id="proposalDetail">
+                    <!-- Content injected via JS -->
+                </main>
+            </div>
+
+            <!-- View 2: Characters -->
+            <div id="charactersView" class="hidden space-y-10">
+                <!-- Character cards will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- JSON Input Modal -->
+    <div id="jsonInputModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+                <h3 class="text-lg font-bold">导入方案 JSON</h3>
+                <button onclick="document.getElementById('jsonInputModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x"></i></button>
+            </div>
+            <div class="p-6">
+                <textarea id="rawJson" placeholder="在此粘贴 JSON 数据..." class="w-full h-80 p-4 font-mono text-sm bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+                <div class="mt-6 flex justify-end">
+                    <button onclick="processJson()" class="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200">开始可视化</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentData = null;
+        let activeProposalIndex = 0;
+
+        // --- Core Functions ---
+
+        function loadSampleData() {
+            const sample = {
+                "metadata": { "song_style": "Synthwave / 城市流行", "user_ideas": "霓虹灯、深夜驾驶、破碎的记忆" },
+                "proposals": Array.from({length: 5}, (_, i) => ({
+                    "proposal_id": i + 1,
+                    "direction_name": ["复古霓虹梦境", "黑白极简纪实", "赛博朋克都市", "抽象光影表现", "都市公路电影"][i],
+                    "basics": {
+                        "outline": "这是一个关于在深夜城市中寻找遗忘记忆的故事。视觉上强调高饱和度的红蓝对比。",
+                        "shooting_method": "采用大量的低角度手持拍摄，增加不稳定性感。使用1.33x变形宽银幕镜头。",
+                        "art_style_description": "视觉灵感源自《银翼杀手》与王家卫的电影色彩。"
+                    },
+                    "storyboard": [
+                        { "segment_id": 1, "content_narrative": "主角坐在雨后的便利店门口，看着霓虹灯闪烁。", "prompts": { "first_frame": "Cinematic shot, lonely man sitting in front of neon convenience store, puddles on ground, high contrast, 8k", "last_frame": "Close up of blinking neon sign reflection in eye, sharp focus" }},
+                        { "segment_id": 2, "content_narrative": "回忆闪回：在舞厅中模糊的身影。", "prompts": { "first_frame": "Blurry dance floor, disco lights, motion blur, 80s aesthetic", "last_frame": "Abstract light streaks, warm colors" }},
+                        { "segment_id": 3, "content_narrative": "主角驾驶着跑车穿过隧道。", "prompts": { "first_frame": "Interior of vintage car, dashboard glowing, tunnel lights passing by fast", "last_frame": "Car exiting tunnel, blinding light" }}
+                    ]
+                })),
+                "character_designs": [
+                    {
+                        "character_id": "char_01", "role_name": "迷失的旅人", "character_description": "25岁左右，面容疲惫但眼神锐利。",
+                        "styling_variations": Array.from({length: 5}, (_, i) => ({
+                            "style_name": ["都市浪人", "赛博黑客", "复古绅士", "未来废土", "街头艺术"][i],
+                            "art_style_text": "融合了皮革与透气科技面料的实验风格。",
+                            "image_prompt": "Portrait of a young man wearing techwear jacket, neon light highlights on face, cyberpunk style"
+                        }))
+                    }
+                ]
+            };
+            document.getElementById('rawJson').value = JSON.stringify(sample, null, 2);
+            processJson();
+        }
+
+        function processJson() {
+            try {
+                const jsonStr = document.getElementById('rawJson').value;
+                currentData = JSON.parse(jsonStr);
+                document.getElementById('jsonInputModal').classList.add('hidden');
+                document.getElementById('emptyState').classList.add('hidden');
+                document.getElementById('dashboardContent').classList.remove('hidden');
+                renderProposals();
+                renderCharacters();
+                lucide.createIcons();
+            } catch (e) {
+                alert("JSON 格式错误，请检查输入！");
+            }
+        }
+
+        function switchTab(tab) {
+            const views = ['proposals', 'characters'];
+            views.forEach(v => {
+                document.getElementById(v + 'View').classList.toggle('hidden', v !== tab);
+                document.getElementById('tab-' + v).className = v === tab ? "px-6 py-3 font-medium transition tab-active" : "px-6 py-3 font-medium transition text-slate-500 hover:text-slate-700";
+            });
+            lucide.createIcons();
+        }
+
+        // --- Rendering Proposals ---
+
+        function renderProposals() {
+            const listEl = document.getElementById('proposalList');
+            listEl.innerHTML = currentData.proposals.map((p, i) => `
+                <button onclick="setActiveProposal(${i})" class="w-full text-left p-4 rounded-xl transition ${i === activeProposalIndex ? 'bg-blue-50 border-blue-200 text-blue-700 font-bold shadow-sm' : 'hover:bg-slate-100 text-slate-600 border border-transparent'}">
+                    <span class="text-xs opacity-50 block mb-1">方案 0${p.proposal_id}</span>
+                    ${p.direction_name}
+                </button>
+            `).join('');
+            
+            const p = currentData.proposals[activeProposalIndex];
+            const detailEl = document.getElementById('proposalDetail');
+            detailEl.innerHTML = `
+                <div class="glass-card p-6 rounded-2xl shadow-sm border-slate-200">
+                    <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
+                        <i data-lucide="sparkles" class="text-yellow-500"></i> ${p.direction_name}
+                    </h2>
+                    <div class="grid grid-cols-3 gap-6">
+                        <div class="space-y-1"><p class="text-xs font-bold text-slate-400 uppercase">拍摄大纲</p><p class="text-sm leading-relaxed">${p.basics.outline}</p></div>
+                        <div class="space-y-1"><p class="text-xs font-bold text-slate-400 uppercase">拍摄方法</p><p class="text-sm leading-relaxed">${p.basics.shooting_method}</p></div>
+                        <div class="space-y-1"><p class="text-xs font-bold text-slate-400 uppercase">艺术风格</p><p class="text-sm leading-relaxed">${p.basics.art_style_description}</p></div>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <h3 class="text-lg font-bold px-1">故事脚本分段</h3>
+                    ${p.storyboard.map(step => `
+                        <div class="glass-card rounded-2xl overflow-hidden shadow-sm flex border-slate-200">
+                            <div class="w-16 bg-slate-900 text-white flex flex-col items-center justify-center font-bold">
+                                <span class="text-xs opacity-50">PART</span>
+                                ${step.segment_id}
+                            </div>
+                            <div class="flex-1 p-6 space-y-4">
+                                <p class="text-slate-700 font-medium">${step.content_narrative}</p>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="prompt-box relative bg-slate-50 p-3 rounded-lg border border-slate-200 group">
+                                        <p class="text-[10px] font-bold text-slate-400 mb-1">START FRAME PROMPT</p>
+                                        <p class="text-xs text-slate-600 italic line-clamp-2">${step.prompts.first_frame}</p>
+                                        <button onclick="copyText('${step.prompts.first_frame.replace(/'/g, "\\'")}')" class="copy-btn absolute top-2 right-2 opacity-0 bg-white shadow-md p-1 rounded transition hover:bg-slate-50">
+                                            <i data-lucide="copy" class="w-3 h-3"></i>
+                                        </button>
+                                    </div>
+                                    <div class="prompt-box relative bg-slate-50 p-3 rounded-lg border border-slate-200 group">
+                                        <p class="text-[10px] font-bold text-slate-400 mb-1">END FRAME PROMPT</p>
+                                        <p class="text-xs text-slate-600 italic line-clamp-2">${step.prompts.last_frame}</p>
+                                        <button onclick="copyText('${step.prompts.last_frame.replace(/'/g, "\\'")}')" class="copy-btn absolute top-2 right-2 opacity-0 bg-white shadow-md p-1 rounded transition hover:bg-slate-50">
+                                            <i data-lucide="copy" class="w-3 h-3"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function setActiveProposal(idx) {
+            activeProposalIndex = idx;
+            renderProposals();
+        }
+
+        // --- Rendering Characters ---
+
+        function renderCharacters() {
+            const charView = document.getElementById('charactersView');
+            charView.innerHTML = currentData.character_designs.map(char => `
+                <div class="space-y-6">
+                    <div class="flex items-end gap-4">
+                        <div class="bg-slate-900 text-white w-12 h-12 rounded-xl flex items-center justify-center">
+                            <i data-lucide="user"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-2xl font-bold">${char.role_name}</h2>
+                            <p class="text-slate-500 text-sm">${char.character_description}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-5 gap-4">
+                        ${char.styling_variations.map(style => `
+                            <div class="glass-card p-4 rounded-xl border-slate-200 hover:border-blue-300 transition group">
+                                <div class="bg-slate-100 aspect-[3/4] rounded-lg mb-3 flex flex-col items-center justify-center border-dashed border-2 border-slate-200 group-hover:bg-blue-50 transition">
+                                    <i data-lucide="image" class="text-slate-300 w-8 h-8 group-hover:text-blue-200"></i>
+                                    <span class="text-[10px] text-slate-400 mt-2">AI 生成预览占位</span>
+                                </div>
+                                <h4 class="font-bold text-sm mb-1">${style.style_name}</h4>
+                                <p class="text-[10px] text-slate-400 mb-2">${style.art_style_text}</p>
+                                <button onclick="copyText('${style.image_prompt.replace(/'/g, "\\'")}')" class="w-full flex items-center justify-center gap-1 py-1.5 bg-slate-50 text-[10px] font-bold rounded-md hover:bg-blue-600 hover:text-white transition">
+                                    <i data-lucide="copy" class="w-3 h-3"></i> 复制提示词
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        // --- Utils ---
+
+        function copyText(text) {
+            const el = document.createElement('textarea');
+            el.value = text;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            
+            const toast = document.createElement('div');
+            toast.className = "fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl z-50 text-sm animate-bounce";
+            toast.innerText = "Prompt 已复制到剪贴板！";
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
+
+        lucide.createIcons();
+    </script>
+</body>
+</html>
