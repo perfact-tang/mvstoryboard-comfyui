@@ -24,7 +24,7 @@ export const useStore = create<AppState>((set) => ({
   activeTab: 'proposals',
   activeProposalIndex: 0,
   isModalOpen: false,
-  comfyUiUrl: '192.168.0.138:8188',
+  comfyUiUrl: import.meta.env.VITE_COMFY_API_URL || 'http://127.0.0.1:8188',
   workflowVersion: 'Qwen-Image-2512',
   isGeneratingAll: false,
 
